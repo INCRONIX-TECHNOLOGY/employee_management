@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "305299273863",
+    "project_id": "employeemanagement-7784c",
+    "storage_bucket": "employeemanagement-7784c.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:305299273863:android:c1da469d149ebc91e86022",
+        "android_client_info": {
+          "package_name": "com.employee_management.inronix.employee_management"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBVn2XrwLJmxwKS5X7cw4DFQTVj0l0GKnI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

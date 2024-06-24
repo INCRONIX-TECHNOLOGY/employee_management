@@ -38,6 +38,13 @@ dependencies:
   firebase_core: ^2.27.0
   firebase_storage: ^11.6.9
   cloud_firestore: ^4.15.8
+  icons_plus: ^5.0.0
+  image_picker: ^1.0.8
+  http: ^1.2.0
+  geocoding: ^3.0.0
+  geolocator: ^11.1.0
+  awesome_notifications: ^0.9.3+1
+
 
 dev_dependencies:
   flutter_test:

@@ -1,10 +1,7 @@
-import 'package:employee_management/Login.dart';
+import 'package:employee_management/Dashboard.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
-import 'SubTaskPage.dart';
-import 'TaskDetails.dart';
-import 'TaskManagement.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -27,7 +24,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: TaskAssignHomePage(),
+      home: Dashboard(),
     );
   }
 }

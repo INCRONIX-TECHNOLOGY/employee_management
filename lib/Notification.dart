@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'PayRoll.dart';
-import 'PayRollReciept.dart';
+import 'Salary Module/PayRoll.dart';
+import 'Salary Module/PayRollReciept.dart';
 
 
 class NotificationScreen extends StatelessWidget {

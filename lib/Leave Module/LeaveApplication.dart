@@ -34,6 +34,7 @@ class _LeaveApplicationFormState extends State<LeaveApplicationForm> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
     return Scaffold(
       appBar: AppBar(
         title: Text('Leave Application'),
@@ -93,19 +94,19 @@ class _LeaveApplicationFormState extends State<LeaveApplicationForm> {
               ),
             ),
             Center(
-              child: ElevatedButton(
-                onPressed: () {
-                  // Handle form submission logic here
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Color.fromRGBO(170, 68, 101, 1), // Background color
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20), // Rectangle shape
+              child:SizedBox(
+                width:  mediaQuery.size.width * 5,
+                height: mediaQuery.size.height*0.07,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: Color.fromRGBO(170, 68, 101, 1), // Background color
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20), // Rectangle shape
+                    ),
                   ),
-                ),
-                child: Text(
-                  'Submit / सबमिट करा',
-                  style: TextStyle(fontSize: 16, color: Colors.white),
+                  onPressed: (){},
+                  child: Text('Submit/प्रस्तुत करा'),
                 ),
               ),
             ),

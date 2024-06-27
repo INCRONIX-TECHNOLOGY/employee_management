@@ -1,13 +1,87 @@
+import 'package:employee_management/Dashboard.dart';
 import 'package:flutter/material.dart';
-
-import 'Leave Module/LeaveApplication.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crypto/crypto.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert'; // for the utf8.encode method
 import 'Task Module/Task Review.dart';
 
-class LoginPage extends StatelessWidget {
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>(); // GlobalKey for form validation
+class LoginPage extends StatefulWidget {
+  @override
+  _LoginPageState createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  //saving user id to the local storage
+  Future<void> _saveUserIdToLocal(String userId) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('userId', userId);
+  }
+
+  String _hashPassword(String password) {
+    var bytes = utf8.encode(password);
+    var digest = sha256.convert(bytes);
+    return digest.toString();
+  }
+
+  Future<void> _login() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      String phone = _phoneController.text.trim();
+      String password = _passwordController.text.trim();
+      // String password = _hashPassword(_passwordController.text.trim()); // hash password
+
+      // Fetch user data from Firestore
+      var userQuery = await _firestore
+          .collection('employees')
+          .where('phone', isEqualTo: phone)
+          .where('password', isEqualTo: password)
+          .get();
+
+      if (userQuery.docs.isNotEmpty) {
+        var userDoc = userQuery.docs.first;
+
+        // Store user ID in secure storage
+        await _saveUserIdToLocal(userDoc.id);
+
+        // Navigate to the dashboard
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => Dashboard()),
+        );
+      } else {
+        setState(() {
+          _errorMessage = 'Invalid phone number or password';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'An error occurred. Please try again.';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
@@ -27,12 +101,11 @@ class LoginPage extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.all(16.0),
           child: Form(
-            key: _formKey, // Assigning GlobalKey to Form widget
+            key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SizedBox(height: 20),
-                // Your Image widget
                 Image.asset(
                   'assets/images/employee.png',
                   height: MediaQuery.of(context).size.height * 0.25,
@@ -40,9 +113,10 @@ class LoginPage extends StatelessWidget {
                 ),
                 SizedBox(height: 20),
                 TextFormField(
+                  controller: _phoneController,
                   decoration: InputDecoration(
-                    prefixIcon: Icon(Icons.badge),
-                    labelText: 'Employee Id/कर्मचारी आयडी',
+                    prefixIcon: Icon(Icons.phone),
+                    labelText: 'Phone Number/फोन नंबर',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10.0),
                     ),
@@ -51,12 +125,12 @@ class LoginPage extends StatelessWidget {
                     if (value == null || value.isEmpty) {
                       return 'Please enter Employee Id';
                     }
-                    // You can add more complex validation logic here if needed
-                    return null; // Return null if the input is valid
+                    return null;
                   },
                 ),
                 SizedBox(height: 20),
                 TextFormField(
+                  controller: _passwordController,
                   obscureText: true,
                   decoration: InputDecoration(
                     prefixIcon: Icon(Icons.lock),
@@ -69,38 +143,34 @@ class LoginPage extends StatelessWidget {
                     if (value == null || value.isEmpty) {
                       return 'Please enter Password';
                     }
-                    // You can add more complex validation logic here if needed
-                    return null; // Return null if the input is valid
+                    return null;
                   },
                 ),
                 SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      // Validate the form before processing login action
-                      if (_formKey.currentState!.validate()) {
-                        // Process login action here
-                        // For example, navigate to the next screen
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                            builder: (context) => TaskAssignHomePage()));
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color.fromRGBO(170, 68, 101, 1), // Background color
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20), // Rectangle shape
+                if (_isLoading) CircularProgressIndicator(),
+                if (_errorMessage != null)
+                  Text(
+                    _errorMessage!,
+                    style: TextStyle(color: Colors.red),
+                  ),
+                SizedBox(height: 20),
+                Center(
+                  child: SizedBox(
+                    width: mediaQuery.size.width * 0.8,
+                    height: mediaQuery.size.height * 0.07,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        backgroundColor: Color.fromRGBO(170, 68, 101, 1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      'Login/लॉगिन करा',
-                      style: TextStyle(fontSize: 16, color: Colors.white),
+                      onPressed: _login,
+                      child: Text('Login/लॉगिन करा'),
                     ),
                   ),
                 ),
-                SizedBox(height: MediaQuery.of(context).viewInsets.bottom),
               ],
             ),
           ),
@@ -108,4 +178,6 @@ class LoginPage extends StatelessWidget {
       ),
     );
   }
+
+
 }

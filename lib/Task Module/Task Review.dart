@@ -1,3 +1,4 @@
+import 'package:employee_management/Task%20Module/SubTaskPage.dart';
 import 'package:employee_management/Task%20Module/TaskDetails.dart';
 import 'package:flutter/material.dart';
 import '../Leave Module/LeaveApplication.dart';
@@ -34,7 +35,7 @@ class TaskAssignHomePage extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (context) => TaskDetails()),
+                      builder: (context) => TaskDetailsPage()),
                 );
               },
               borderRadius: BorderRadius.circular(8),

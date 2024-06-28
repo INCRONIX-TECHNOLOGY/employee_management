@@ -1,3 +1,5 @@
+import 'package:employee_management/Attendence.dart';
+import 'package:employee_management/UI_profile.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:icons_plus/icons_plus.dart';
@@ -37,7 +39,13 @@ class _DashboardState extends State<Dashboard> {
         child: Column(
           children: [
             InkWell(
-              onTap: (){},
+              onTap: (){
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => ProfileModule()),
+                );
+              },
               borderRadius: BorderRadius.circular(8),
               splashColor: Colors.grey.withOpacity(0.3),
               highlightColor: Colors.grey.withOpacity(0.1),
@@ -155,7 +163,7 @@ class _DashboardState extends State<Dashboard> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => PayrollPage()),
+                          builder: (context) => AttendanceModule()),
                     );
                   }),
                   _buildListTile('Tasks/कार्य', Bootstrap.duffle,

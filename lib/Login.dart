@@ -20,9 +20,10 @@ class _LoginPageState extends State<LoginPage> {
   String? _errorMessage;
 
   //saving user id to the local storage
-  Future<void> _saveUserIdToLocal(String userId) async {
+  Future<void> _saveUserIdToLocal(String userId, String userName) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString('userId', userId);
+    await prefs.setString('userName',userName);
   }
 
   String _hashPassword(String password) {
@@ -55,7 +56,7 @@ class _LoginPageState extends State<LoginPage> {
         var userDoc = userQuery.docs.first;
 
         // Store user ID in secure storage
-        await _saveUserIdToLocal(userDoc.id);
+        await _saveUserIdToLocal(userDoc.id,userDoc['name']);
 
         // Navigate to the dashboard
         Navigator.pushReplacement(

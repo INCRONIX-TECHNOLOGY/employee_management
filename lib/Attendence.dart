@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
@@ -12,7 +14,7 @@ class AttendanceModule extends StatefulWidget {
 }
 
 class _AttendanceModuleState extends State<AttendanceModule> {
-  String? _selectedShift;
+  String? _selectedAttendaces ;
   ImageProvider<Object>? _image = NetworkImage('https://via.placeholder.com/150');
   String _date = "Fetching date...";
   String _time = "Fetching time...";
@@ -27,7 +29,7 @@ class _AttendanceModuleState extends State<AttendanceModule> {
   @override
   void initState() {
     super.initState();
-   // _getCurrentLocation();
+    _getCurrentLocation();
     fetchDateTime();
   }
 
@@ -73,16 +75,10 @@ class _AttendanceModuleState extends State<AttendanceModule> {
       print(placemarks);
 
       setState(() {
-        _locationMessage = '''
-         ${place.name},
-        ${place.street},
-          ${place.thoroughfare},
-        ${place.subLocality},
-        ${place.locality},
-         ${place.postalCode},
-        ${place.administrativeArea},
-        ${place.country}
-        ''';
+        _locationMessage = '''${place.name},${place.street},
+${place.thoroughfare},${place.subLocality},
+${place.locality},${place.postalCode},
+${place.administrativeArea},${place.country}''';
         _locationController.text = _locationMessage;
       });
     } catch (e) {
@@ -166,21 +162,102 @@ class _AttendanceModuleState extends State<AttendanceModule> {
     super.dispose();
   }
 
-
   Future<void> _submitAttendance() async {
-    // Your attendance submission logic here
+    try {
+      // Get current user ID, replace with actual logic to fetch employee ID
+      String employeeID = '123456';
 
-    // Send a notification on successful submission
-    AwesomeNotifications().createNotification(
-      content: NotificationContent(
-        id: 10,
-        channelKey: 'basic_channel',
-        title: 'Attendance Submitted',
-        body: 'Your attendance has been successfully submitted.',
-        notificationLayout: NotificationLayout.Default,
-      ),
-    );
+      // Initialize attendance data structure
+      Map<String, dynamic> attendanceData = {
+        'name': 'John Doe', // Replace with actual user's name
+        'month-Year': {
+          'leaves': {
+            'onedayleave': [],
+            'halfDayLeave': [],
+          },
+        },
+      };
+
+      // Firebase Firestore collection and document reference
+      String collectionPath = 'attendance';
+      CollectionReference attendanceCollection = FirebaseFirestore.instance.collection(collectionPath);
+      DocumentReference attendanceDocument = attendanceCollection.doc(employeeID);
+
+      // Add initial attendance data to Firestore if it doesn't exist
+      await attendanceDocument.set(attendanceData, SetOptions(merge: true));
+
+      // Formulate the attendance data based on selected dropdown item
+      Map<String, dynamic> newAttendanceEntry = {};
+
+      if (_selectedAttendaces == 'Check In') {
+        newAttendanceEntry = {
+          'day': _date,
+          'checkIn': {
+            'timestamp': Timestamp.fromDate(DateTime.now()),
+            'location': _locationMessage,
+            'photo': '', // Add logic to include photo if needed
+            'Status': 'Active', // Assuming initial status
+          },
+        };
+      } else if (_selectedAttendaces == 'Mid Check In') {
+        newAttendanceEntry = {
+          'day': _date,
+          'midCheckIn': {
+            'timestamp': Timestamp.fromDate(DateTime.now()),
+            'location': _locationMessage,
+            'photo': '', // Add logic to include photo if needed
+            'Status': 'Active', // Assuming initial status
+          },
+        };
+      } else if (_selectedAttendaces == 'Check Out') {
+        newAttendanceEntry = {
+          'day': _date,
+          'checkOut': {
+            'timestamp': Timestamp.fromDate(DateTime.now()),
+            'location': _locationMessage,
+            'photo': '', // Add logic to include photo if needed
+            'Status': 'Active', // Assuming initial status
+          },
+        };
+      }
+
+      // Update the Firestore document with the new attendance entry using arrayUnion
+      await attendanceDocument.update({
+        'month-Year.days': FieldValue.arrayUnion([newAttendanceEntry]),
+      });
+
+      // Send a notification on successful submission
+      AwesomeNotifications().createNotification(
+        content: NotificationContent(
+          id: 10,
+          channelKey: 'basic_channel',
+          title: 'Attendance Submitted',
+          body: 'Your attendance has been successfully submitted.',
+          notificationLayout: NotificationLayout.Default,
+        ),
+      );
+
+      // Optionally, reset form state or show success message
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Attendance submitted successfully'),
+        duration: Duration(seconds: 2),
+      ));
+    } catch (e) {
+      print('Error submitting attendance: $e');
+      // Handle errors or show error message
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Failed to submit attendance'),
+        duration: Duration(seconds: 2),
+      ));
+    }
   }
+
+
+
+
+
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -212,19 +289,33 @@ class _AttendanceModuleState extends State<AttendanceModule> {
                 ),
               ),
               SizedBox(height: mediaQuery.size.height * 0.03),
-              _buildTextField('Name/नाव', 'John Doe'),
-              SizedBox(height: mediaQuery.size.height * 0.03),
-              _buildTextField('Id/आईडी', '123456'),
-              SizedBox(height: mediaQuery.size.height * 0.03),
-              _buildLocationTextField('Location/स्थान', _locationController),
-              SizedBox(height: mediaQuery.size.height * 0.03),
-              _buildTextField('Time/वेळ',_formatTime(_time)),
-              SizedBox(height: mediaQuery.size.height * 0.03),
-              _buildTextField('Date/तारीख', _date),
+              Card(
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildDetailRow('Name/नाव', 'John Doe'),
+                      SizedBox(height: mediaQuery.size.height * 0.01),
+                      _buildDetailRow('Id/आईडी', '123456'),
+                      SizedBox(height: mediaQuery.size.height * 0.01),
+                      _buildLocationCard('Location/स्थान', _locationController),
+                      SizedBox(height: mediaQuery.size.height * 0.01),
+                      _buildDetailRow('Time/वेळ', _formatTime(_time)),
+                      SizedBox(height: mediaQuery.size.height * 0.01),
+                      _buildDetailRow('Date/तारीख', _date),
+                    ],
+                  ),
+                ),
+              ),
               SizedBox(height: mediaQuery.size.height * 0.03),
               DropdownButtonFormField<String>(
                 decoration: InputDecoration(
-                  labelText: 'Select Shift/शिफ्ट निवडा',
+                  labelText: 'Select Attendance/शिफ्ट निवडा',
                   labelStyle: TextStyle(fontWeight: FontWeight.bold),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -234,8 +325,8 @@ class _AttendanceModuleState extends State<AttendanceModule> {
                     horizontal: mediaQuery.size.width * 0.03,
                   ),
                 ),
-                value: _selectedShift,
-                items: <String>['Shift 1', 'Shift 2', 'Shift 3']
+                value: _selectedAttendaces,
+                items: <String>['Check In', 'Mid Check In', 'Check Out']
                     .map((String value) {
                   return DropdownMenuItem<String>(
                     value: value,
@@ -244,27 +335,37 @@ class _AttendanceModuleState extends State<AttendanceModule> {
                 }).toList(),
                 onChanged: (newValue) {
                   setState(() {
-                    _selectedShift = newValue;
+                    _selectedAttendaces = newValue;
                   });
                 },
               ),
               SizedBox(height: mediaQuery.size.height * 0.05),
               Center(
                 child: SizedBox(
-                  width:  mediaQuery.size.width * 5,
+                  width: mediaQuery.size.width * 5,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor: Color.fromRGBO(170, 68, 101, 1), // Background color
+                      backgroundColor: Color.fromRGBO(170, 68, 101, 1),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20), // Rectangle shape
+                        borderRadius: BorderRadius.circular(30.0),
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        vertical: mediaQuery.size.height * 0.015,
+                        horizontal: mediaQuery.size.width * 0.15,
                       ),
                     ),
                     onPressed: _submitAttendance,
-                    child: Text('Submit/प्रस्तुत करा'),
+                    child: Text(
+                      'Submit Attendance/उपस्थिती सबमिट करा',
+                      style: TextStyle(
+                        fontSize: mediaQuery.size.height * 0.02,
+                        color: Colors.white
+                      ),
+                    ),
                   ),
                 ),
               ),
+
             ],
           ),
         ),
@@ -272,54 +373,69 @@ class _AttendanceModuleState extends State<AttendanceModule> {
     );
   }
 
-  Widget _buildTextField(String label, String defaultValue) {
-    final mediaQuery = MediaQuery.of(context);
-    return TextFormField(
-      initialValue: defaultValue,
-      readOnly: true,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(fontWeight: FontWeight.bold),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+  Widget _buildDetailRow(String title, String value) {
+    return Row(
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color:Color.fromRGBO(150,150,150,3),
+          ),
         ),
-        contentPadding: EdgeInsets.symmetric(
-          vertical: mediaQuery.size.height * 0.02,
-          horizontal: mediaQuery.size.width * 0.03,
+        SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 
-  Widget _buildLocationTextField(String label, TextEditingController controller) {
-    final mediaQuery = MediaQuery.of(context);
-    return TextFormField(
-      readOnly: true,
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(fontWeight: FontWeight.bold),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+  Widget _buildLocationCard(String title, TextEditingController controller) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color:Color.fromRGBO(150,150,150,3),
+          ),
         ),
-        contentPadding: EdgeInsets.symmetric(
-          vertical: mediaQuery.size.height * 0.02,
-          horizontal: mediaQuery.size.width * 0.03,
+        TextField(
+          controller: controller,
+          maxLines: null,
+          style: TextStyle(
+            fontSize: 16,
+          ),
+          readOnly: true,
+          decoration: InputDecoration(
+            border: InputBorder.none,
+          ),
         ),
-      ),
-      maxLines: null, // Allow the text field to expand
-      onChanged: (value) {
-        setState(() {}); // Update the height dynamically
-      },
+      ],
     );
   }
 
   String _formatTime(String time) {
-    final parts = time.split(':');
-    final hours = int.parse(parts[0]);
-    final minutes = parts[1];
-    final ampm = hours >= 12 ? 'PM' : 'AM';
-    final formattedHours = hours % 12 == 0 ? 12 : hours % 12;
-    return '$formattedHours:$minutes $ampm';
+    List<String> parts = time.split(':');
+    if (parts.length == 3) {
+      int hour = int.parse(parts[0]);
+      String minute = parts[1];
+      String second = parts[2];
+      String period = hour >= 12 ? 'PM' : 'AM';
+      hour = hour % 12;
+      if (hour == 0) hour = 12;
+      return "${hour.toString().padLeft(2, '0')}:${minute.padLeft(2, '0')}:${second.padLeft(2, '0')} $period";
+    } else {
+      return time;
+    }
   }
 }

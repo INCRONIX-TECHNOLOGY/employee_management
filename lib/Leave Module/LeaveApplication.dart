@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LeaveApplicationForm extends StatefulWidget {
   @override
@@ -9,6 +11,11 @@ class _LeaveApplicationFormState extends State<LeaveApplicationForm> {
   final _timeController = TextEditingController();
   final _dateController = TextEditingController();
   final _reasonController = TextEditingController();
+  String? _selectedLeavetype;
+  bool _isLoading = false;
+  String? _errorMessage;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
 
   @override
   void dispose() {
@@ -32,6 +39,89 @@ class _LeaveApplicationFormState extends State<LeaveApplicationForm> {
     }
   }
 
+  Future<void> _selectTime(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+    if (picked != null) {
+      final now = DateTime.now();
+      final selectedTime = DateTime(now.year, now.month, now.day, picked.hour, picked.minute);
+      setState(() {
+        _timeController.text = TimeOfDay.fromDateTime(selectedTime).format(context);
+      });
+    }
+  }
+
+  Future<void> _submitLeaveRequest() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // Retrieve user ID and name from secure storage
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? userId = await prefs.getString('userId');
+      String? userName = await prefs.getString('userName');
+
+      if (userId == null || userName == null) {
+        setState(() {
+          _errorMessage = 'User information not found. Please log in again.';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      if (_selectedLeavetype == null) {
+        setState(() {
+          _errorMessage = 'Please select the leave type';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // Collect data from the form
+      String leaveType = _selectedLeavetype ?? '';
+      String time = _timeController.text;
+      String date = _dateController.text;
+      String reason = _reasonController.text;
+
+      // Add leave request to Firestore
+      await _firestore.collection('leave_requests').add({
+        'userId': userId,
+        'userName': userName,
+        'leaveType': leaveType,
+        'time': time,
+        'date': date,
+        'reason': reason,
+        'status':'pending',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      // Clear the form
+      setState(() {
+        _selectedLeavetype = null;
+        _timeController.clear();
+        _dateController.clear();
+        _reasonController.clear();
+      });
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Leave request submitted successfully.')),
+      );
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'An error occurred. Please try again.';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
@@ -48,7 +138,7 @@ class _LeaveApplicationFormState extends State<LeaveApplicationForm> {
         ),
         leading: IconButton(
           icon: Icon(Icons.arrow_back),
-          onPressed: () {},
+          onPressed: () => Navigator.pop(context),
           color: Colors.black,
         ),
       ),
@@ -57,55 +147,85 @@ class _LeaveApplicationFormState extends State<LeaveApplicationForm> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              margin: EdgeInsets.only(bottom: 16),
-              child: TextField(
-                controller: _timeController,
-                decoration: InputDecoration(
-                  labelText: 'Time / वेळ :',
-                  suffixIcon: Icon(Icons.access_time),
-                  border: OutlineInputBorder(),
+            DropdownButtonFormField<String>(
+              decoration: InputDecoration(
+                labelText: 'Select Leave Type/रजा प्रकार निवडा',
+                labelStyle: TextStyle(fontWeight: FontWeight.bold),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                contentPadding: EdgeInsets.symmetric(
+                  vertical: mediaQuery.size.height * 0.02,
+                  horizontal: mediaQuery.size.width * 0.03,
+                ),
+              ),
+              value: _selectedLeavetype,
+              items: <String>['Half Day/अर्धा दिवस सुट्टी', 'Full Day/पूर्ण दिवस सुट्टी']
+                  .map((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value),
+                );
+              }).toList(),
+              onChanged: (newValue) {
+                setState(() {
+                  _selectedLeavetype = newValue;
+                });
+              },
+            ),
+            SizedBox(height: mediaQuery.size.height * 0.02),
+            TextField(
+              controller: _timeController,
+              decoration: InputDecoration(
+                labelText: 'Time / वेळ :',
+                suffixIcon: GestureDetector(
+                  onTap: () => _selectTime(context),
+                  child: Icon(Icons.access_time),
+                ),
+                border: OutlineInputBorder(),
+              ),
+            ),
+            SizedBox(height: mediaQuery.size.height * 0.02),
+            TextField(
+              controller: _dateController,
+              decoration: InputDecoration(
+                labelText: 'Date / तारीख :',
+                border: OutlineInputBorder(),
+                suffixIcon: GestureDetector(
+                  onTap: () => _selectDate(context),
+                  child: Icon(Icons.calendar_today),
                 ),
               ),
             ),
-            Container(
-              margin: EdgeInsets.only(bottom: 16),
-              child: TextField(
-                controller: _dateController,
-                decoration: InputDecoration(
-                  labelText: 'Date / तारीख :',
-                  border: OutlineInputBorder(),
-                  suffixIcon: GestureDetector(
-                    onTap: () => _selectDate(context),
-                    child: Icon(Icons.calendar_today),
-                  ),
-                ),
+            SizedBox(height: mediaQuery.size.height * 0.02),
+            TextField(
+              controller: _reasonController,
+              decoration: InputDecoration(
+                labelText: 'Reason / कारण :',
+                border: OutlineInputBorder(),
               ),
+              maxLines: 4,
             ),
-            Container(
-              margin: EdgeInsets.only(bottom: 60),
-              child: TextField(
-                controller: _reasonController,
-                decoration: InputDecoration(
-                  labelText: 'Reason / कारण :',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 4,
+            SizedBox(height: mediaQuery.size.height * 0.03),
+            if (_isLoading) CircularProgressIndicator(),
+            if (_errorMessage != null)
+              Text(
+                _errorMessage!,
+                style: TextStyle(color: Colors.red),
               ),
-            ),
             Center(
-              child:SizedBox(
-                width:  mediaQuery.size.width * 5,
-                height: mediaQuery.size.height*0.07,
+              child: SizedBox(
+                width: mediaQuery.size.width * 0.8,
+                height: mediaQuery.size.height * 0.07,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     foregroundColor: Colors.white,
-                    backgroundColor: Color.fromRGBO(170, 68, 101, 1), // Background color
+                    backgroundColor: Color.fromRGBO(170, 68, 101, 1),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20), // Rectangle shape
+                      borderRadius: BorderRadius.circular(20),
                     ),
                   ),
-                  onPressed: (){},
+                  onPressed: _submitLeaveRequest,
                   child: Text('Submit/प्रस्तुत करा'),
                 ),
               ),

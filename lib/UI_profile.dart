@@ -1,6 +1,22 @@
+import 'package:employee_management/Login.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class ProfileModule extends StatelessWidget {
+class ProfileModule extends StatefulWidget {
+
+  @override
+  State<ProfileModule> createState() => _ProfileModuleState();
+}
+
+class _ProfileModuleState extends State<ProfileModule> {
+  void _logout() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => LoginPage()),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
@@ -55,6 +71,24 @@ class ProfileModule extends StatelessWidget {
               ),
               SizedBox(height: mediaQuery.size.height * 0.03),
               _buildTotalWorkingHours(mediaQuery),
+              SizedBox(height: mediaQuery.size.height * 0.03),
+              Center(
+                child: SizedBox(
+                  width: mediaQuery.size.width * 0.8,
+                  height: mediaQuery.size.height * 0.07,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: Color.fromRGBO(170, 68, 101, 1),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    onPressed: _logout,
+                    child: Text('Logout/लॉग आऊट'),
+                  ),
+                ),
+              ),
             ],
           ),
         ),

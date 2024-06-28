@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi';
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AttendanceModule extends StatefulWidget {
   @override
@@ -15,14 +18,15 @@ class AttendanceModule extends StatefulWidget {
 
 class _AttendanceModuleState extends State<AttendanceModule> {
   String? _selectedAttendaces ;
-  ImageProvider<Object>? _image = NetworkImage('https://via.placeholder.com/150');
   String _date = "Fetching date...";
   String _time = "Fetching time...";
   Timer? _timer;
   DateTime? _apiDateTime;
   Duration? _offset;
   String _locationMessage = "Press the button to get location";
-  String _locationMessage1 = "Second label";
+  bool _isLoading = false;
+  String? _errorMessage;
+  File? _image;
 
   final TextEditingController _locationController = TextEditingController();
 
@@ -71,8 +75,6 @@ class _AttendanceModuleState extends State<AttendanceModule> {
       // Reverse geocoding to get address from coordinates
       List<Placemark> placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
       Placemark place = placemarks[1];
-      _locationMessage1 = "${placemarks}";
-      print(placemarks);
 
       setState(() {
         _locationMessage = '''${place.name},${place.street},
@@ -165,7 +167,23 @@ ${place.administrativeArea},${place.country}''';
   Future<void> _submitAttendance() async {
     try {
       // Get current user ID, replace with actual logic to fetch employee ID
-      String employeeID = '123456';
+
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? userId = await prefs.getString('userId');
+      String? userName = await prefs.getString('userName');
+
+      if (userId == null || userName == null) {
+        setState(() {
+          _errorMessage = 'User information not found. Please log in again.';
+          _isLoading = false;
+        });
+        return;
+      }
+      String employeeID = userId;
+      // Get current date and format it as needed
+      DateTime now = DateTime.now();
+      String monthYear = '${now.month.toString().padLeft(2, '0')}-${now.year}';
+      String currentDate = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year.toString().substring(2)}';
 
       // Initialize attendance data structure
       Map<String, dynamic> attendanceData = {
@@ -183,48 +201,58 @@ ${place.administrativeArea},${place.country}''';
       CollectionReference attendanceCollection = FirebaseFirestore.instance.collection(collectionPath);
       DocumentReference attendanceDocument = attendanceCollection.doc(employeeID);
 
-      // Add initial attendance data to Firestore if it doesn't exist
-      await attendanceDocument.set(attendanceData, SetOptions(merge: true));
+      // Check if the current month-year document exists
+      DocumentSnapshot docSnapshot = await attendanceDocument.get();
 
-      // Formulate the attendance data based on selected dropdown item
+      // Initialize new attendance entry based on selected dropdown item
       Map<String, dynamic> newAttendanceEntry = {};
 
       if (_selectedAttendaces == 'Check In') {
         newAttendanceEntry = {
-          'day': _date,
-          'checkIn': {
-            'timestamp': Timestamp.fromDate(DateTime.now()),
-            'location': _locationMessage,
-            'photo': '', // Add logic to include photo if needed
-            'Status': 'Active', // Assuming initial status
-          },
+          'timestamp': _formatTime(_time),
+          'location': _locationMessage,
+          'photo': "", // Add logic to include photo if needed
+          'Status': 'Active', // Assuming initial status
         };
       } else if (_selectedAttendaces == 'Mid Check In') {
         newAttendanceEntry = {
-          'day': _date,
-          'midCheckIn': {
-            'timestamp': Timestamp.fromDate(DateTime.now()),
-            'location': _locationMessage,
-            'photo': '', // Add logic to include photo if needed
-            'Status': 'Active', // Assuming initial status
-          },
+          'timestamp': _formatTime(_time),
+          'location': _locationMessage,
+          'photo': "", // Add logic to include photo if needed
+          'Status': 'Active', // Assuming initial status
         };
       } else if (_selectedAttendaces == 'Check Out') {
         newAttendanceEntry = {
-          'day': _date,
-          'checkOut': {
-            'timestamp': Timestamp.fromDate(DateTime.now()),
-            'location': _locationMessage,
-            'photo': '', // Add logic to include photo if needed
-            'Status': 'Active', // Assuming initial status
-          },
+          'timestamp': _formatTime(_time),
+          'location': _locationMessage,
+          'photo': "", // Add logic to include photo if needed
+          'Status': 'Active', // Assuming initial status
         };
       }
 
-      // Update the Firestore document with the new attendance entry using arrayUnion
-      await attendanceDocument.update({
-        'month-Year.days': FieldValue.arrayUnion([newAttendanceEntry]),
-      });
+      if (!docSnapshot.exists) {
+        // Create a new month-year map if it doesn't exist
+        await attendanceDocument.set({
+          monthYear: {
+            'Days': {
+              _date: {
+                _selectedAttendaces: newAttendanceEntry
+              }
+            }
+          }
+        }, SetOptions(merge: true));
+      } else {
+        // Update the existing month-year map with the current date map
+        await attendanceDocument.set({
+          monthYear: {
+            'Days': {
+              currentDate: {
+                _selectedAttendaces: newAttendanceEntry
+              }
+            }
+          }
+        }, SetOptions(merge: true));
+      }
 
       // Send a notification on successful submission
       AwesomeNotifications().createNotification(
@@ -259,6 +287,18 @@ ${place.administrativeArea},${place.country}''';
 
 
 
+  // Method to pick image from camera
+  Future<void> _pickImageFromCamera() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.camera);
+
+    if (pickedFile != null) {
+      setState(() {
+        _image = File(pickedFile.path) as File?;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
@@ -281,10 +321,17 @@ ${place.administrativeArea},${place.country}''';
             children: <Widget>[
               Center(
                 child: GestureDetector(
-                  // onTap: _pickImage,
+                  onTap: _pickImageFromCamera, // Pick image on tap
                   child: CircleAvatar(
                     radius: mediaQuery.size.width * 0.2,
-                    backgroundImage: _image,
+                    backgroundImage: _image != null ? FileImage(_image! as File) : null,
+                    child: _image == null
+                        ? Icon(
+                      Icons.camera_alt,
+                      size: mediaQuery.size.width * 0.2,
+                      color: Colors.grey,
+                    )
+                        : null,
                   ),
                 ),
               ),
@@ -305,7 +352,7 @@ ${place.administrativeArea},${place.country}''';
                       SizedBox(height: mediaQuery.size.height * 0.01),
                       _buildLocationCard('Location/स्थान', _locationController),
                       SizedBox(height: mediaQuery.size.height * 0.01),
-                      _buildDetailRow('Time/वेळ', _formatTime(_time)),
+                      _buildDetailRow('Time/वेळ', _time),
                       SizedBox(height: mediaQuery.size.height * 0.01),
                       _buildDetailRow('Date/तारीख', _date),
                     ],
@@ -359,13 +406,12 @@ ${place.administrativeArea},${place.country}''';
                       'Submit Attendance/उपस्थिती सबमिट करा',
                       style: TextStyle(
                         fontSize: mediaQuery.size.height * 0.02,
-                        color: Colors.white
+                        color: Colors.white,
                       ),
                     ),
                   ),
                 ),
               ),
-
             ],
           ),
         ),

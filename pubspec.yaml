@@ -44,6 +44,7 @@ dependencies:
   geocoding: ^3.0.0
   geolocator: ^11.1.0
   awesome_notifications: ^0.9.3+1
+  shared_preferences: ^2.2.3
   pdf: ^3.6.1
   printing: ^5.9.2
 
